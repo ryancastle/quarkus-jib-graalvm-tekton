@@ -1,0 +1,87 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: quarkus-build
+spec:
+  params:
+  - name: repository
+    type: string
+    description: The git repository URL to clone from.
+  - name: directory
+    type: string
+    description: The git repository directory to use.
+  - name: tag
+    type: string
+    description: The git tag/branch to fetch.
+    default: main
+  - name: namespace
+    type: string
+    description: Image namespace
+  - name: image
+    type: string
+    description: Image name
+  - name: native
+    default: disabled
+    type: string
+    description: Enabled native image compilation
+  workspaces:
+  - name: shared
+  - name: cache
+  tasks:
+  - name: fetch
+    taskRef:
+      name: git-clone
+      kind: ClusterTask
+    workspaces:
+    - name: output
+      workspace: shared
+    params:
+    - name: url
+      value: $(params.repository)
+    - name: revision
+      value: $(params.tag)
+    - name: deleteExisting
+      value: "true"
+  - name: build
+    runAfter: [fetch]
+    taskRef:
+      name: quarkus-jib-maven
+    params:
+    - name: namespace
+      value: $(params.namespace)
+    - name: image
+      value: $(params.image)
+    - name: tag
+      value: $(params.tag)
+    - name: directory
+      value: $(params.directory)
+    workspaces:
+    - name: source
+      workspace: shared
+    - name: cache
+      workspace: cache
+  - name: native
+    when:
+    - input: $(params.native)
+      operator: in
+      values: [enabled]
+    runAfter: [fetch]
+    taskRef:
+      name: quarkus-jib-maven
+    params:
+    - name: profile
+      value: native
+    - name: namespace
+      value: $(params.namespace)
+    - name: image
+      value: $(params.image)
+    - name: tag
+      value: $(params.tag)
+    - name: directory
+      value: $(params.directory)
+    workspaces:
+    - name: source
+      workspace: shared
+    - name: cache
+      workspace: cache
+

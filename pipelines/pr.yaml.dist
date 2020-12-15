@@ -1,0 +1,31 @@
+# Usage: oc create -f pipelines/jib/pr.yaml.dist
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  creationTimestamp: null
+  generateName: quarkus-build-
+spec:
+  pipelineRef:
+    name: quarkus-build
+  params:
+    - name: repository
+      value: https://git@github.com/ryancastle/quarkus-jib-graalvm-tekton.git
+    - name: directory
+      value: rest-json-quickstart
+    - name: tag
+      value: main
+    - name: namespace
+      value: demo
+    - name: image
+      value: gitops-demo
+    - name: native
+      value: enabled
+  workspaces:
+  - name: shared
+    persistentVolumeClaim:
+      claimName: jib-cache-pvc
+    subPath: shared
+  - name: cache
+    persistentVolumeClaim:
+      claimName: jib-cache-pvc
+    subPath: cache

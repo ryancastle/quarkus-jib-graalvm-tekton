@@ -1,0 +1,45 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: quarkus-jib-maven
+spec:
+  workspaces:
+  - name: source
+  - name: cache
+  params:
+  - name: profile
+    default: ""
+  - name: base-jvm-image
+    default: gcr.io/distroless/java:11 # Jib Default
+#    default: fabric8/java-alpine-openjdk11-jre # Quarkus Default
+  - name: directory
+    default: .
+  - name: tag
+    default: latest
+  - name: namespace
+    description: Image namespace (Quay organisation)
+  - name: image
+    description: Image name (Quay repository)
+  steps:
+  - name: compile
+    image: quay.io/quarkus/centos-quarkus-maven:20.2.0-java11
+    workingDir: $(workspaces.source.path)/$(params.directory)
+    env:
+    - name: PROFILE
+      value: ""
+    - name: IMAGE
+      value: "$(params.image)"
+    script: |
+      #!/bin/sh
+
+      if [ "native" = "$(params.profile)" ]; then PROFILE=-Pnative; IMAGE=$IMAGE-native; sleep 10; fi
+
+      mvn -B package $PROFILE \
+        -Dmaven.repo.local=$(workspaces.cache.path)/.m2/repository/ \
+        -DskipTests \
+        -Dquarkus.container-image.build=true \
+        -Dquarkus.container-image.push=true \
+        -Dquarkus.container-image.registry=quay.io \
+        -Dquarkus.container-image.group=$(params.namespace) \
+        -Dquarkus.container-image.name=$IMAGE \
+        -Dquarkus.jib.base-jvm-image=$(params.base-jvm-image)
